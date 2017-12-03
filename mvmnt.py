@@ -47,6 +47,15 @@ def main():
         im1 = cv2.imread(sys.argv[2])
         im2 = cv2.imread(sys.argv[3])
 
+        # Disply two images
+        cv2.imshow("new_im", im1)
+        cv2.imshow("old_im", im2)
+
+        # Wait
+        k = cv2.waitKey(0)
+        if k == ESC_KEY:
+            return
+
         # compute transform
         print_transform(im1, im2)
 
