@@ -1,0 +1,24 @@
+import cv2
+import sys
+
+
+def print_usage():
+    print """
+        Usage: mvmnt.py    [im1]     [im2]
+    """
+
+def main():
+    if len(sys.argv) < 3:
+        print_usage()
+    
+    
+    
+    mat1
+
+
+
+
+
+
+if __name__ == "__main__":
+    main()
