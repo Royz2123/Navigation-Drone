@@ -15,7 +15,7 @@ def print_usage():
     print """Invalid arguments:
 
     Usage: mvmnt.py    [mode={0: vid, 1: ims}]
-                    VID_MODE:    [input num = 0 (OPTIONAL)]
+                    VID_MODE:    [input {num, path}]
                     IM_MODE:     [im1]     [im2]
     """
 
@@ -47,15 +47,6 @@ def main():
         im1 = cv2.imread(sys.argv[2])
         im2 = cv2.imread(sys.argv[3])
 
-        # Disply two images
-        cv2.imshow("new_im", im1)
-        cv2.imshow("old_im", im2)
-
-        # Wait
-        k = cv2.waitKey(0)
-        if k == ESC_KEY:
-            return
-
         # compute transform
         print_transform(im1, im2)
 
@@ -64,10 +55,12 @@ def main():
         new_im = None
         old_im = None
 
-        cap = cv2.VideoCapture(0)
-        while True:
+        print sys.argv[2]
+
+        cap = cv2.VideoCapture(sys.argv[2])
+        while cap.isOpened():
             # Take each frame
-            _, new_im = cap.read()
+            ret, new_im = cap.read()
 
             # compare to last frame if exists
             if old_im is not None:
@@ -85,6 +78,9 @@ def main():
 
             # Move onto the next frame
             old_im = new_im
+
+        cap.release()
+        cv2.destroyAllWindows()
 
 
 
