@@ -2,8 +2,9 @@ import cv2
 import sys
 import numpy as np
 import time
+import math
 
-
+# ESCAPE KEY
 ESC_KEY = 27
 
 # MODES
@@ -50,8 +51,35 @@ def add_text(im, txt, pos):
     )
     
 
-def calc_transform(transform, ):
+def process_transform(curr_pos, old_im, new_im):
+    transform = do_transform(old_im, new_im)
+
+    # work on transform
+    A = [transform[0][:2], transform[1][:2]]
+    B = [transform[0][2], transform[1][2]]
     
+    # find scaling and rotation
+    U, S, V = np.linalg.svd(a, full_matrices=True)
+                        
+    # update rotation
+    # Maybe use kabsch algorithm
+    
+    # update translation
+    scaling = S[0][0]
+    curr_pos["translation"][0] += B[0]
+    curr_pos["translation"][1] += B[1]
+    curr_pos["translation"][2] *= scaling
+
+    # add text to this im
+    disp_img = new_im.copy()
+    add_text(disp_img, "X SHIFT: %s (PIXELS)" % curr_pos["translation"][0], (20, 120))
+    add_text(disp_img, "Y SHIFT: %s (PIXELS)" % curr_pos["translation"][1], (20, 150))
+    add_text(disp_img, "Z SHIFT: %s (PIXELS)" % curr_pos["translation"][2], (20, 180))
+    add_text(disp_img, "ROTATION: %s (DEGREES)" % curr_pos["rotation"], (20, 210))
+    
+    # return the displaed image
+    return disp_img
+
     
 
 def main():
@@ -111,31 +139,9 @@ def main():
             if old_im is not None:
                 # Compute transform
                 try:
-                    transform = do_transform(old_im, new_im)
-
-                    # work on transform
-                    A = [transform[0][:2], transform[1][:2]]
-                    B = [transform[0][2], transform[1][2]]
+                    # get the transform on a new matrix
+                    disp_img = process_transform(curr_pos, old_im, new_im)
                     
-                    # find scaling and rotation
-                    U, S, V = np.linalg.svd(a, full_matrices=True)
-                                        
-                    # update rotation
-                    # Maybe use kabsch algorithm
-                    
-                    # update translation
-                    scaling = S[0][0]
-                    curr_pos["translation"][0] += B[0]
-                    curr_pos["translation"][1] += B[1]
-                    curr_pos["translation"][2] *= scaling
-
-                    # add text to this im
-                    disp_img = new_im.copy()
-                    add_text(disp_img, "X SHIFT: %s (PIXELS)" % curr_pos["translation"][0], (20, 120))
-                    add_text(disp_img, "Y SHIFT: %s (PIXELS)" % curr_pos["translation"][1], (20, 150))
-                    add_text(disp_img, "Z SHIFT: %s (PIXELS)" % curr_pos["translation"][2], (20, 180))
-                    add_text(disp_img, "ROTATION: %s (DEGREES)" % curr_pos["rotation"], (20, 210))
-
                     # Display two images
                     out.write(disp_img)
                 except Exception as e:
