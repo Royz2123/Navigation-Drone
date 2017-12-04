@@ -131,9 +131,10 @@ def main():
 
                     # add text to this im
                     disp_img = new_im.copy()
-                    add_text(disp_img, "X SHIFT: %s (PIXELS)" % curr_pos[0], (20, 120))
-                    add_text(disp_img, "Y SHIFT: %s (PIXELS)" % curr_pos[1], (20, 150))
-                    add_text(disp_img, "Z SHIFT: %s (PIXELS)" % curr_pos[2], (20, 180))
+                    add_text(disp_img, "X SHIFT: %s (PIXELS)" % curr_pos["translation"][0], (20, 120))
+                    add_text(disp_img, "Y SHIFT: %s (PIXELS)" % curr_pos["translation"][1], (20, 150))
+                    add_text(disp_img, "Z SHIFT: %s (PIXELS)" % curr_pos["translation"][2], (20, 180))
+                    add_text(disp_img, "ROTATION: %s (DEGREES)" % curr_pos["rotation"], (20, 210))
 
                     # Display two images
                     out.write(disp_img)
