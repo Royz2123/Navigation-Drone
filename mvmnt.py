@@ -34,7 +34,7 @@ def do_transform(im1, im2):
     if transform is None:
         raise RuntimeError("Couldn't find the transform")
 
-    return transform[0][2], transform[1][2]
+    return transform
 
 
 def add_text(im, txt, pos):
@@ -48,24 +48,15 @@ def add_text(im, txt, pos):
         2,
         cv2.LINE_AA
     )
+    
 
+def calc_transform(transform, ):
+    
+    
 
 def main():
     if len(sys.argv) < 2:
         print_usage()
-<<<<<<< HEAD
-    
-    # read the two images
-    im1 = cv2.imread(sys.argv[1])
-    im2 = cv2.imread(sys.argv[2])
-    
-    # estimate the transform between them
-    transform = cv2.estimateRigidTransform(im1, im2, fullAffine=True)
-   
-    
-    
-    print(transform)
-=======
         return
 
     if int(sys.argv[1]) == IM_MODE:
@@ -78,16 +69,19 @@ def main():
         im2 = cv2.imread(sys.argv[3])
 
         # compute transform
-        do_transform(im1, im2)
-
+        transform = do_transform(im1, im2)
+        print(transform)
     else:
         # define the two images
         new_im = None
         old_im = None
 
         # define the current position
-        curr_pos = [0, 0, 50]
-
+        curr_pos = {
+            "translation" : [0, 0, 50],
+            "rotation" : 0,
+        }
+        
         # try to see if this is a webcom video
         vid = sys.argv[2]
         try:
@@ -115,19 +109,25 @@ def main():
 
             # compare to last frame if exists
             if old_im is not None:
-                """
-                # Disply two images
-                cv2.imshow("new_im", new_im)
-                cv2.imshow("old_im", old_im)
-                """
-
                 # Compute transform
                 try:
-                    shiftx, shifty = do_transform(old_im, new_im)
+                    transform = do_transform(old_im, new_im)
 
-                    # add shift
-                    curr_pos[0] += shiftx
-                    curr_pos[1] += shifty
+                    # work on transform
+                    A = [transform[0][:2], transform[1][:2]]
+                    B = [transform[0][2], transform[1][2]]
+                    
+                    # find scaling and rotation
+                    U, S, V = np.linalg.svd(a, full_matrices=True)
+                                        
+                    # update rotation
+                    # Maybe use kabsch algorithm
+                    
+                    # update translation
+                    scaling = S[0][0]
+                    curr_pos["translation"][0] += B[0]
+                    curr_pos["translation"][1] += B[1]
+                    curr_pos["translation"][2] *= scaling
 
                     # add text to this im
                     disp_img = new_im.copy()
@@ -135,9 +135,8 @@ def main():
                     add_text(disp_img, "Y SHIFT: %s (PIXELS)" % curr_pos[1], (20, 150))
                     add_text(disp_img, "Z SHIFT: %s (PIXELS)" % curr_pos[2], (20, 180))
 
-                    # Disply two images
+                    # Display two images
                     out.write(disp_img)
-
                 except Exception as e:
                     print e
                     pass
@@ -148,13 +147,6 @@ def main():
         cap.release()
         out.release()
         cv2.destroyAllWindows()
-
-
->>>>>>> fe5a42f484e624fb03078bbf2bbec1e18267977c
-
-
-
-
 
 
 if __name__ == "__main__":
