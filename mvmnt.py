@@ -17,6 +17,8 @@ def main():
     
     # estimate the transform between them
     transform = cv2.estimateRigidTransform(im1, im2, fullAffine=True)
+   
+    
     
     print(transform)
 
