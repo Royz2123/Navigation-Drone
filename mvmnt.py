@@ -50,7 +50,7 @@ def add_text(im, txt, pos):
         cv2.LINE_AA
     )
     
-
+# TODO: Maybe use kabsch algorithm
 def process_transform(curr_pos, old_im, new_im):
     transform = do_transform(old_im, new_im)
 
@@ -62,7 +62,10 @@ def process_transform(curr_pos, old_im, new_im):
     U, S, V = np.linalg.svd(a, full_matrices=True)
                         
     # update rotation
-    # Maybe use kabsch algorithm
+    curr_pos["rotation"] = (
+        math.acos(U[0][0])
+        + math.acos(V[0][0])
+    )
     
     # update translation
     scaling = S[0][0]
