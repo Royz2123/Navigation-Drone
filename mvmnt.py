@@ -58,14 +58,19 @@ def process_transform(curr_pos, old_im, new_im):
     A = [transform[0][:2], transform[1][:2]]
     B = [transform[0][2], transform[1][2]]
 
+    #print(A)
+    #print(B)
+    # time.sleep(1)
+
     # find scaling and rotation
     # U, S, V = np.linalg.svd(A, full_matrices=True) - leave svd for now
 
     # update rotation and translation
-    curr_pos["rotation"] = math.atan(A[0][0] / B[0][0])
+    currTheta = math.atan(A[0][1] / A[0][0])
+    curr_pos["rotation"] += currTheta
     curr_pos["translation"][0] += B[0]
     curr_pos["translation"][1] += B[1]
-    curr_pos["translation"][2] *= A[0][0] / math.cos(curr_pos["rotation"])
+    curr_pos["translation"][2] *= (A[0][0] / math.cos(currTheta))
 
     # add text to this im
     disp_img = new_im.copy()
@@ -123,8 +128,6 @@ def main():
 
 
         # Define the codec and create VideoWriter object
-
-        if(!live_mode):
         size = (
             int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
             int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
