@@ -29,7 +29,7 @@ def do_transform(im1, im2):
     transform = cv2.estimateRigidTransform(
         im1,
         im2,
-        fullAffine=True
+        fullAffine=False
     )
 
     if transform is None:
@@ -49,7 +49,7 @@ def add_text(im, txt, pos):
         2,
         cv2.LINE_AA
     )
-    
+
 # TODO: Maybe use kabsch algorithm
 def process_transform(curr_pos, old_im, new_im):
     transform = do_transform(old_im, new_im)
@@ -57,21 +57,15 @@ def process_transform(curr_pos, old_im, new_im):
     # work on transform
     A = [transform[0][:2], transform[1][:2]]
     B = [transform[0][2], transform[1][2]]
-    
+
     # find scaling and rotation
-    U, S, V = np.linalg.svd(a, full_matrices=True)
-                        
-    # update rotation
-    curr_pos["rotation"] = (
-        math.acos(U[0][0])
-        + math.acos(V[0][0])
-    )
-    
-    # update translation
-    scaling = S[0][0]
+    # U, S, V = np.linalg.svd(A, full_matrices=True) - leave svd for now
+
+    # update rotation and translation
+    curr_pos["rotation"] = math.atan(A[0][0] / B[0][0])
     curr_pos["translation"][0] += B[0]
     curr_pos["translation"][1] += B[1]
-    curr_pos["translation"][2] *= scaling
+    curr_pos["translation"][2] *= A[0][0] / math.cos(curr_pos["rotation"])
 
     # add text to this im
     disp_img = new_im.copy()
@@ -79,11 +73,11 @@ def process_transform(curr_pos, old_im, new_im):
     add_text(disp_img, "Y SHIFT: %s (PIXELS)" % curr_pos["translation"][1], (20, 150))
     add_text(disp_img, "Z SHIFT: %s (PIXELS)" % curr_pos["translation"][2], (20, 180))
     add_text(disp_img, "ROTATION: %s (DEGREES)" % curr_pos["rotation"], (20, 210))
-    
+
     # return the displaed image
     return disp_img
 
-    
+
 
 def main():
     if len(sys.argv) < 2:
@@ -106,23 +100,31 @@ def main():
         # define the two images
         new_im = None
         old_im = None
+        frame_num = 0
+
 
         # define the current position
         curr_pos = {
             "translation" : [0, 0, 50],
             "rotation" : 0,
         }
-        
+
         # try to see if this is a webcom video
         vid = sys.argv[2]
+        live_mode = 0
         try:
+            live_mode = 1
             vid = int(vid)
         except:
             pass
 
         # work with video
         cap = cv2.VideoCapture(vid)
+
+
         # Define the codec and create VideoWriter object
+
+        if(!live_mode):
         size = (
             int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
             int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -143,16 +145,21 @@ def main():
                 # Compute transform
                 try:
                     # get the transform on a new matrix
-                    disp_img = process_transform(curr_pos, old_im, new_im)
-                    
+                    disp_img = process_transform(
+                        curr_pos,
+                        old_im,
+                        new_im
+                    )
+
                     # Display two images
                     out.write(disp_img)
                 except Exception as e:
-                    print e
+                    print "%s:\t%s" % (frame_num, e)
                     pass
 
             # Move onto the next frame
             old_im = new_im
+            frame_num += 1
 
         cap.release()
         out.release()
