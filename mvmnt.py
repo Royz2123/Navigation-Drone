@@ -62,6 +62,8 @@ def process_transform(curr_pos, old_im, new_im):
     #print(B)
     # time.sleep(1)
 
+    print(A[0][0])
+
     # find scaling and rotation
     # U, S, V = np.linalg.svd(A, full_matrices=True) - leave svd for now
 
@@ -70,7 +72,7 @@ def process_transform(curr_pos, old_im, new_im):
     curr_pos["rotation"] += currTheta
     curr_pos["translation"][0] += B[0]
     curr_pos["translation"][1] += B[1]
-    curr_pos["translation"][2] *= (A[0][0] / math.cos(currTheta))
+    curr_pos["translation"][2] /= (A[0][0] / math.cos(currTheta))
 
     # add text to this im
     disp_img = new_im.copy()
@@ -107,7 +109,6 @@ def main():
         old_im = None
         frame_num = 0
 
-
         # define the current position
         curr_pos = {
             "translation" : [0, 0, 50],
@@ -126,7 +127,6 @@ def main():
         # work with video
         cap = cv2.VideoCapture(vid)
 
-
         # Define the codec and create VideoWriter object
         size = (
             int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
@@ -135,38 +135,51 @@ def main():
         fourcc = cv2.VideoWriter_fourcc(*'MPEG')  # 'x264' doesn't work
         out = cv2.VideoWriter('output.avi',fourcc, 20.0, size)
 
-        while cap.isOpened():
-            # Take each frame
-            ret, new_im = cap.read()
+        try:
+            while cap.isOpened():
+                # Take each frame
+                ret, new_im = cap.read()
 
-            # check if the movie is still going
-            if not ret:
-                break
+                # check if the movie is still going
+                if not ret:
+                    break
 
-            # compare to last frame if exists
-            if old_im is not None:
-                # Compute transform
-                try:
-                    # get the transform on a new matrix
-                    disp_img = process_transform(
-                        curr_pos,
-                        old_im,
-                        new_im
-                    )
+                # compare to last frame if exists
+                if old_im is not None:
+                    # Compute transform
+                    try:
+                        # get the transform on a new matrix
+                        disp_img = process_transform(
+                            curr_pos,
+                            old_im,
+                            new_im
+                        )
 
-                    # Display two images
-                    out.write(disp_img)
-                except Exception as e:
-                    print "%s:\t%s" % (frame_num, e)
-                    pass
+                        # show the new image
+                        cv2.imshow('frame', disp_img)
+                        ch = cv2.waitKey(1)
+                        if ch & 0xFF == ord('q'):
+                            break
+                        elif ch & 0xFF == ord('x'):
+                            curr_pos = {
+                                "translation" : [0, 0, 50],
+                                "rotation" : 0,
+                            }
 
-            # Move onto the next frame
-            old_im = new_im
-            frame_num += 1
 
-        cap.release()
-        out.release()
-        cv2.destroyAllWindows()
+                        # Display two images
+                        out.write(disp_img)
+                    except Exception as e:
+                        print "%s:\t%s" % (frame_num, e)
+                        pass
+
+                # Move onto the next frame
+                old_im = new_im
+                frame_num += 1
+        finally:
+            cap.release()
+            out.release()
+            cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
