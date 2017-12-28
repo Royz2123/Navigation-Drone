@@ -129,7 +129,7 @@ def process_transform(curr_pos, old_im, new_im):
     add_text(disp_img, "ROTATION: %s (DEGREES)" % curr_pos["rotation"], (20, 210))
     add_text(disp_img, "+", (disp_img.shape[1]/2, disp_img.shape[0]/2),10)
     add_line(disp_img,disp_img.shape[1]/2 , disp_img.shape[0]/2,0,180*3%255)
-    add_line(disp_img,disp_img.shape[1]/2+1*int(total_y) , disp_img.shape[0]/2+0*int(total_y),curr_pos["rotation"],0*3%255)
+    add_line(disp_img,disp_img.shape[1]/2 , disp_img.shape[0]/2+int(total_y),curr_pos["rotation"],0*3%255)
 
 
     # return the displaed image
