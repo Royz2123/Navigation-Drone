@@ -5,6 +5,7 @@ import time
 import math
 import os
 import traceback
+from matplotlib import pyplot as plt
 
 # ESCAPE KEY
 ESC_KEY = 27
@@ -54,15 +55,22 @@ def do_transform(im1, im2):
     im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2HSV)
     im2 = cv2.cvtColor(im2, cv2.COLOR_BGR2HSV)
 
-    # estimate the transform between them
-    transform = cv2.estimateRigidTransform(
-        im1,
-        im2,
-        fullAffine=False
-    )
 
-    if transform is None:
-        raise RuntimeError("Couldn't find the transform")
+    methods = ['cv2.TM_CCOEFF', 'cv2.TM_CCOEFF_NORMED', 'cv.TM_CCORR',
+                'cv.TM_CCORR_NORMED', 'cv.TM_SQDIFF', 'cv.TM_SQDIFF_NORMED']
+
+    # estimate the transform between them
+    res = cv2.matchTemplate(im2,im1,eval(methods[1]))
+    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+    top_left = max_loc
+    bottom_right = (top_left[0], top_left[1])
+    cv2.rectangle(im1,top_left, bottom_right, 255, 2)
+    plt.subplot(121),plt.imshow(res,cmap = 'gray')
+    plt.title('Matching Result'), plt.xticks([]), plt.yticks([])
+    plt.subplot(122),plt.imshow(im1,cmap = 'gray')
+    plt.title('Detected Point'), plt.xticks([]), plt.yticks([])
+    plt.suptitle('cv2.TM_CCOEFF_NORMED')
+    plt.show()
 
     return transform
 
@@ -93,50 +101,6 @@ def add_line(im, x, y, degree,maz=1):
         5
     )
 # TODO: Maybe use kabsch algorithm
-def process_transform(curr_pos, old_im, new_im):
-    transform = do_transform(old_im, new_im)
-    global total_y,total_x
-
-    # work on transform
-    A = [transform[0][:2], transform[1][:2]]
-    B = [transform[0][2], transform[1][2]]
-
-    # find current parms
-    deltaTheta = math.atan(A[0][1] / A[0][0])
-    deltaScale = (A[0][0] / math.cos(deltaTheta))
-    deltaX = B[0]
-    deltaY = B[1]
-    debug_changes(deltaTheta, deltaScale, deltaX, deltaY)
-
-    # find real drone movement
-    old_height = curr_pos["translation"][2]
-    new_height = 95#old_height / deltaScale
-    rel_X = (deltaX / new_im.shape[1]) * (new_height * CAMERA_RATIO_X)
-    ret_Y = (deltaY / new_im.shape[0]) * (new_height * CAMERA_RATIO_Y)
-    total_y  += deltaY
-    total_x  += deltaX
-
-    # update rotation and translation
-    curr_pos["rotation"] += deltaTheta * 180 / 3.1415
-    curr_pos["translation"][0] += rel_X
-    curr_pos["translation"][1] += ret_Y
-    curr_pos["translation"][2] = 95#new_height
-
-    # add text to this im
-    disp_img = new_im.copy()
-    add_text(disp_img, "X SHIFT: %s" % curr_pos["translation"][0], (20, 120))
-    add_text(disp_img, "Y SHIFT: %s" % curr_pos["translation"][1], (20, 150))
-    add_text(disp_img, "Z SHIFT: %s" % curr_pos["translation"][2], (20, 180))
-    add_text(disp_img, "ROTATION: %s (DEGREES)" % curr_pos["rotation"], (20, 210))
-    add_text(disp_img, "+", (disp_img.shape[1]/2, disp_img.shape[0]/2),10)
-    add_line(disp_img,disp_img.shape[1]/2 , disp_img.shape[0]/2,0,0)
-    add_line(disp_img,disp_img.shape[1]/2 , disp_img.shape[0]/2+int(total_y),curr_pos["rotation"],0)
-    add_line(disp_img,disp_img.shape[1]/2 , disp_img.shape[0]/2,89.999,255)
-    add_line(disp_img,disp_img.shape[1]/2+int(total_x) , disp_img.shape[0]/2,89.999,255)
-
-
-    # return the displaed image
-    return disp_img
 
 
 def main():
@@ -204,17 +168,11 @@ def main():
                         # Compute transform
                         try:
                             # get the transform on a new matrix
-                            disp_img = process_transform(
-                                curr_pos,
-                                old_im,
-                                new_im
-                            )
-
+                            do_transform(old_im, new_im)
                             # show the new image
-                            cv2.imshow('frame', disp_img)
 
+                            pass
                             # Display two images
-                            out.write(disp_img)
                         except Exception as e:
                             print "%s:\t%s" % (frame_num, e)
                             traceback.print_exc()
