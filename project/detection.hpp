@@ -47,6 +47,12 @@ bool findFace(
 	vector<Point2f>& square,
   CascadeClassifier face_cascade
 );
+bool findTransform(
+	Mat& frame,
+	Mat& prevFrame,
+	vector<Point2f>& oldCameraSquare,
+	vector<Point2f>& cameraSquare
+)
 bool findCorr(
 	Mat& image,
 	Mat& templ,

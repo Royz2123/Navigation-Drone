@@ -84,6 +84,18 @@ void binarizeImageInv(const Mat &src, Mat &dst)
 	}
 }
 
+
+bool findTransform(
+	Mat& frame,
+	Mat& prevFrame,
+	vector<Point2f>& oldCameraSquare,
+	vector<Point2f>& cameraSquare
+) {
+
+}
+
+
+
 bool findFace(
 	Mat& image,
 	Mat& templ,
