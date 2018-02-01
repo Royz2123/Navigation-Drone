@@ -7,7 +7,7 @@ CROP = 50
 #img2 = img.copy()
 #template = cv.imread('tests/b.jpg',0)
 
-cap = cv.VideoCapture("tests/maz.mp4")
+cap = cv.VideoCapture("../tests/maz.mp4")
 while cap.isOpened():
     ret, img = cap.read()
     img2 = img.copy()
