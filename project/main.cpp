@@ -62,6 +62,9 @@ using cv::VideoCapture;
 
 #define MAX_MOVEMENT 40
 
+#define TX_TYPE 0
+#define SONY_TYPE 1
+
 // TODO: Remove Direction
 enum Direction
 {
@@ -80,23 +83,23 @@ bool badMovement(
 	vector<Point2f>& cameraSquare,
 	vector<Point2f>& oldCameraSquare
 );
+void squareToPosition(
+	Vec3f dronePosition,
+	vector<Point3f>& worldSquare,
+	vector<Point2f>& cameraSquare,
+	bool cameraType = TX_TYPE;
+);
+void smoothPosition(
+	Vec3f smoothPosition,
+	Vec3f dronePosition,
+	float smoothingFactor,
+	bool first_run
+);
+
 
 // Global variables
 int cameraIndex = 0;
 int detectMode = NAV_MODE;
-
-Mat image;
-Mat templ;
-
-// Synchronization tools
-bool flagCS1[2] = {false, false};
-bool flagCS2[2] = {false, false};
-int turnCS1;
-int turnCS2;
-std::mutex image_lock;
-std::mutex templ_lock;
-
-std::thread threads[2];
 
 int main(int argc, char* argv[]) {
 	// Handle args
@@ -176,6 +179,19 @@ void mainLoop() {
 	cv::createTrackbar("Battery Factor", "config", &batteryFactor, 2 * BATTERY_ADDITION);
 	cv::createTrackbar("Distance", "config", &distance, 200);
 
+	// Face cascade for face mode
+	CascadeClassifier face_cascade;
+	if (detectMode == FACE_MODE) {
+		// Cascade stuff
+		std::string face_cascade_name = (
+			"../../../OpenCV/data/haarcascades/haarcascade_frontalface_alt.xml"
+		);
+		if (!face_cascade.load(face_cascade_name)) {
+			printf("Failed loading the Cascade\n");
+			return;
+		}
+	}
+
 	Mat logo = Mat::zeros(100, 100, CV_8U);
 
 	{
@@ -197,37 +213,11 @@ void mainLoop() {
 	Mat frame;
 	Mat prevFrame;
 
-	// set up camera numbers
-	Mat sonyEyeCameraMatrix = (cv::Mat_<float>(3, 3) <<
-		5.38614e+02, 0., 3.10130e+02,
-		0., 5.38112e+02, 2.27066e+02,
-		0., 0., 1.);
-	Mat txCameraMatrix = (cv::Mat_<float>(3, 3) <<
-		6.7628576774457656e+02, 0., 3.0519865395809290e+02,
-		0., 6.7561534030641053e+02, 2.4692172053127743e+02,
-		0., 0., 1.);
-	Mat cameraMatrix = txCameraMatrix;
-
-	// NOTE(Andrey): A down facing camera
-	Affine3f droneCameraTransform{Vec3f{1, 0, 0} * (CV_PI / 2)};
-	Affine3f invDroneCameraTransform = droneCameraTransform.inv();
-
-	// face cascade
-	CascadeClassifier face_cascade;
-	if (detectMode == FACE_MODE) {
-		// Cascade stuff
-		std::string face_cascade_name = (
-			"../../../OpenCV/data/haarcascades/haarcascade_frontalface_alt.xml"
-		);
-		if (!face_cascade.load(face_cascade_name)) {
-			printf("Failed loading the Cascade\n");
-			return;
-		}
-	}
-
-	Affine3f droneTransform;
+	// Scaling of the picture
+	int scaling = (detectMode == FACE_MODE) ? SCALING : 1;
 
 	// smoothing variables
+	Vec3f dronePosition{0, 0, 0};
 	Vec3f smoothPosition{0, 0, 0};
 	float smoothingFactor = 0.3;
 
@@ -268,32 +258,43 @@ void mainLoop() {
 		float deltaTime = (float)(cv::getTickCount() - lastFrameTickCount) / cv::getTickFrequency();
 		lastFrameTickCount = cv::getTickCount();
 
-		// clone frame for face detection & detect pattern
+		// Find the transform of the drone
 		bool found;
-		image = frame.clone();
-		switch(argv[2]) {
-			case FACE_MODE:
+		if(mode == NAV_MODE) {
+			// New technique, find vector directly
+			found = findTransform(frame, prevFrame, oldCameraSquare, cameraSquare);
+		}
+		else {
+			// Old techniques, find camera square and convert to position
+			// Find Square first (by face or by tiles)
+			if(mode==FACE_MODE) {
 				// Note: If we want this to work we need some resizing
 				findFace(frame, templ, face_cascade);
 				found = findCorr(frame, templ, cameraSquare);
-			case HET_MODE:
+			} else {
 				found = findOpenSquare(frame, cameraSquare);
-			default:
-				found = findTransform(frame, prevFrame, oldCameraSquare, cameraSquare);
+			}
+
+			// set square in case of problems, e.g: flickering, not found..
+			if (!found || lockMode && badMovement(cameraSquare, oldCameraSquare)) {
+				cameraSquare = oldCameraSquare;
+			}
+			oldCameraSquare = cameraSquare;
+
+			// Normalize square by scaling
+			for (unsigned int i = 0; i < cameraSquare.size(); i++) {
+				cameraSquare[i].x *= scaling;
+				cameraSquare[i].y *= scaling;
+			}
+
+			// convert square to smoothed position using solvePnP
+			smoothingFactor = smoothing_factor_slider / 100.0f
+			squareToPosition(dronePosition, worldSquare, cameraSquare);
+			smoothPosition(smoothPosition, dronePosition, smoothingFactor, first_run);
 		}
 
 		// update distance from trackbar
 		droneTarget.z = distance;
-
-		// set square in case of problems, e.g: flickering, not found..
-		if (!found || lockMode && badMovement(cameraSquare, oldCameraSquare)) {
-			cameraSquare = oldCameraSquare;
-		}
-		oldCameraSquare = cameraSquare;
-
-		// Debug cameraSquare
-		std::cout << std::endl << "OLD: " << oldCameraSquare << std::endl;
-		std::cout << "NEW: " << cameraSquare << std::endl <<std::endl;
 
 		VIZ_STEP
 		{
@@ -305,75 +306,8 @@ void mainLoop() {
 			}
 		}
 
-		// normalize back from detection
-		if (detectMode == FACE_MODE) {
-			// normalize
-			for (unsigned int i = 0; i < cameraSquare.size(); i++) {
-				cameraSquare[i].x *= SCALING;
-				cameraSquare[i].y *= SCALING;
-			}
-		}
-
-		if (!found) {
-			std::cerr << "NOT FOUND" << std::endl;
-		} else {
-			// for now lets ignore the rvec
-			// Need to see if we can modify for trapezim, Eli said it's bad
-			Mat rvec;
-			Mat tvec;
-
-			cout << "PNP INPUT: " << cameraSquare << std::endl;
-			std::cout << "HELLOOOO" << std::endl;
-
-			found = cv::solvePnP(worldSquare,
-				cameraSquare,
-				cameraMatrix,
-				Mat{},
-				rvec,
-				tvec
-			);
-
-			Affine3f cameraTransform = Affine3f{Affine3d{rvec, tvec}};
-			// The square doesn't move, we are moving.
-			cameraTransform = cameraTransform.inv();
-			// We found the camera, but we want to find the drone
-			droneTransform = cameraTransform * invDroneCameraTransform;
-
-			Vec3f pos = droneTransform.translation();
-
-			// now we want to normalize in terms of neg/pos
-			// we found that up = -, left = -, back = -
-			// for comfort, we want right, up, and back to be +
-			pos = {pos[0], -pos[1], -pos[2]};
-			std::cout << "NORM SHARP POS: " << pos << std::endl;
-
-			// Check if drastic change (from error or something)
-			if (first_run)
-				smoothPosition = pos;
-
-			//else if (!bigChange(pos, smoothPosition)){
-				// Smooth the positon based on last pos
-			//	smoothPosition = smoothingFactor * smoothPosition + (1 - smoothingFactor) * pos;
-			//}
-			smoothPosition = smoothingFactor * smoothPosition + (1 - smoothingFactor) * pos;
-
-			// Set new translation
-			droneTransform.translation(smoothPosition);
-
-			// change from first_run
-			first_run = false;
-		}
-		smoothingFactor = smoothing_factor_slider / 100.0f;
-
-		std::cout << "NORM SMOOTH POS: " << smoothPosition << std::endl;
-    std::cout << "TARGET POS: " << droneTarget << std::endl;
-
 		// Trying for now without yaw since it doesn't help us
-		// Vec4f controlErrors = calculateControlErrors(droneTransform.translation(), Mat{droneTransform.rotation()}, droneTarget);
-		Vec4f controlErrors = simpleControlErrors(
-			smoothPosition,
-			droneTarget
-		);
+		Vec4f controlErrors = simpleControlErrors(smoothPosition, droneTarget);
 		Vec4f pidControl;
 
 		std::cout << "ERRORS: " << controlErrors <<std::endl;
@@ -501,6 +435,9 @@ void mainLoop() {
 				stepViz.displayedStep++;
 			}
 		}
+
+		// change from first_run
+		first_run = false;
 	}
 }
 
@@ -529,4 +466,78 @@ bool badMovement(
 		}
 	}
 	return false;
+}
+
+
+void squareToPosition(
+	Vec3f dronePosition,
+	vector<Point3f>& worldSquare,
+	vector<Point2f>& cameraSquare,
+	bool cameraType = TX_TYPE;
+) {
+	// set up camera numbers
+	Mat sonyEyeCameraMatrix = (cv::Mat_<float>(3, 3) <<
+		5.38614e+02, 0., 3.10130e+02,
+		0., 5.38112e+02, 2.27066e+02,
+		0., 0., 1.);
+	Mat txCameraMatrix = (cv::Mat_<float>(3, 3) <<
+		6.7628576774457656e+02, 0., 3.0519865395809290e+02,
+		0., 6.7561534030641053e+02, 2.4692172053127743e+02,
+		0., 0., 1.);
+	Mat cameraMatrix = (cameraType==TX_TYPE)?txCameraMatrix:sonyEyeCameraMatrix;
+
+	// NOTE(Andrey): A down facing camera
+	// Camera transform variables
+	Affine3f droneTransform;
+	Affine3f cameraTransform;
+	Affine3f droneCameraTransform{Vec3f{1, 0, 0} * (CV_PI / 2)};
+	Affine3f invDroneCameraTransform = droneCameraTransform.inv();
+
+	// init variables
+	Mat rvec;
+	Mat tvec;
+
+	// for now lets ignore the rvec
+	// Need to see if we can modify for trapezim, Eli said it's bad
+	found = cv::solvePnP(
+		worldSquare,
+		cameraSquare,
+		cameraMatrix,
+		Mat{},
+		rvec,
+		tvec
+	);
+
+	// The square doesn't move, we are moving.
+	cameraTransform = Affine3f{Affine3d{rvec, tvec}}.inv();
+	// We found the camera, but we want to find the drone
+	droneTransform = cameraTransform * invDroneCameraTransform;
+
+	dronePosition = droneTransform.translation();
+
+	// now we want to normalize in terms of neg/pos
+	// we found that up = -, left = -, back = -
+	// for comfort, we want right, up, and back to be +
+	dronePosition = {
+		dronePosition[0],
+		-dronePosition[1],
+		-dronePosition[2]
+	};
+}
+
+void smoothPosition(
+	Vec3f smoothPosition,
+	Vec3f dronePosition,
+	float smoothingFactor,
+	bool first_run
+) {
+	// Smooth out the position
+	if (first_run) {
+		smoothPosition = pos;
+	} else {
+		smoothPosition = (
+			smoothingFactor * smoothPosition
+			+ (1 - smoothingFactor) * dronePosition;
+		);
+	}
 }

@@ -85,12 +85,18 @@ void binarizeImageInv(const Mat &src, Mat &dst)
 }
 
 
+// This function:
+// 1) finds the transform between the 2 frames
+// 2) apply transform to the new drone position
 bool findTransform(
 	Mat& frame,
 	Mat& prevFrame,
 	vector<Point2f>& oldCameraSquare,
 	vector<Point2f>& cameraSquare
 ) {
+	// set the two vectors (scaling and translation)
+	vector<>
+
 
 }
 
