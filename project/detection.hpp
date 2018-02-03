@@ -52,7 +52,7 @@ bool findTransform(
 	Mat& prevFrame,
 	vector<Point2f>& oldCameraSquare,
 	vector<Point2f>& cameraSquare
-)
+);
 bool findCorr(
 	Mat& image,
 	Mat& templ,

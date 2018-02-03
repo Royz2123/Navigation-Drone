@@ -95,7 +95,6 @@ bool findTransform(
 	vector<Point2f>& cameraSquare
 ) {
 	// set the two vectors (scaling and translation)
-	vector<>
 
 
 }

@@ -87,9 +87,9 @@ void squareToPosition(
 	Vec3f dronePosition,
 	vector<Point3f>& worldSquare,
 	vector<Point2f>& cameraSquare,
-	bool cameraType = TX_TYPE;
+	bool cameraType = TX_TYPE
 );
-void smoothPosition(
+void smoothPos(
 	Vec3f smoothPosition,
 	Vec3f dronePosition,
 	float smoothingFactor,
@@ -107,13 +107,14 @@ int main(int argc, char* argv[]) {
 		cameraIndex = atoi(argv[1]);
 
 	// Set flight mode
-	switch(argv[2]) {
-		case "face":
+	if (argc - 2 > 0) {
+		if (strcmp(argv[2], "face") == 0) {
 			detectMode = FACE_MODE;
-		case "het":
+		} else if (strcmp(argv[2], "het") == 0) {
 			detectMode = HET_MODE;
-		default:
+		} else {
 			detectMode = NAV_MODE;
+		}
 	}
 
 	// Call mainLoop, detection will be based on flight mode
@@ -152,7 +153,9 @@ void mainLoop() {
 	vector<Point2f> cameraSquare;
 	vector<Point2f> oldCameraSquare;
 
-	Point3f droneTarget = {worldSquareSize, 0, distance};
+	Point3f droneTarget = {worldSquareSize, 0, (float)distance};
+
+	Affine3f droneTransform;
 
 	// Serial stuff
 	QuadSerial serial;
@@ -184,7 +187,7 @@ void mainLoop() {
 	if (detectMode == FACE_MODE) {
 		// Cascade stuff
 		std::string face_cascade_name = (
-			"../../../OpenCV/data/haarcascades/haarcascade_frontalface_alt.xml"
+			"../../../../OpenCV/data/haarcascades/haarcascade_frontalface_alt.xml"
 		);
 		if (!face_cascade.load(face_cascade_name)) {
 			printf("Failed loading the Cascade\n");
@@ -210,6 +213,7 @@ void mainLoop() {
 	}
 	cap.set(cv::CAP_PROP_FPS, 60);
 
+	Mat templ;
 	Mat frame;
 	Mat prevFrame;
 
@@ -260,14 +264,14 @@ void mainLoop() {
 
 		// Find the transform of the drone
 		bool found;
-		if(mode == NAV_MODE) {
+		if(detectMode == NAV_MODE) {
 			// New technique, find vector directly
 			found = findTransform(frame, prevFrame, oldCameraSquare, cameraSquare);
 		}
 		else {
 			// Old techniques, find camera square and convert to position
 			// Find Square first (by face or by tiles)
-			if(mode==FACE_MODE) {
+			if(detectMode == FACE_MODE) {
 				// Note: If we want this to work we need some resizing
 				findFace(frame, templ, face_cascade);
 				found = findCorr(frame, templ, cameraSquare);
@@ -276,7 +280,7 @@ void mainLoop() {
 			}
 
 			// set square in case of problems, e.g: flickering, not found..
-			if (!found || lockMode && badMovement(cameraSquare, oldCameraSquare)) {
+			if (!found || (lockMode && badMovement(cameraSquare, oldCameraSquare))) {
 				cameraSquare = oldCameraSquare;
 			}
 			oldCameraSquare = cameraSquare;
@@ -288,9 +292,10 @@ void mainLoop() {
 			}
 
 			// convert square to smoothed position using solvePnP
-			smoothingFactor = smoothing_factor_slider / 100.0f
+			smoothingFactor = smoothing_factor_slider / 100.0f;
 			squareToPosition(dronePosition, worldSquare, cameraSquare);
-			smoothPosition(smoothPosition, dronePosition, smoothingFactor, first_run);
+			droneTransform.translation(dronePosition);
+			smoothPos(smoothPosition, dronePosition, smoothingFactor, first_run);
 		}
 
 		// update distance from trackbar
@@ -457,7 +462,7 @@ bool badMovement(
 	vector<Point2f>& cameraSquare,
 	vector<Point2f>& oldCameraSquare
 ) {
-	for(int i=0; i < cameraSquare.size(); i++){
+	for(unsigned int i=0; i < cameraSquare.size(); i++){
 		if (
 			abs(cameraSquare[i].x - oldCameraSquare[i].x) > MAX_MOVEMENT
 			|| abs(cameraSquare[i].y - oldCameraSquare[i].y) > MAX_MOVEMENT
@@ -473,7 +478,7 @@ void squareToPosition(
 	Vec3f dronePosition,
 	vector<Point3f>& worldSquare,
 	vector<Point2f>& cameraSquare,
-	bool cameraType = TX_TYPE;
+	bool cameraType
 ) {
 	// set up camera numbers
 	Mat sonyEyeCameraMatrix = (cv::Mat_<float>(3, 3) <<
@@ -499,7 +504,7 @@ void squareToPosition(
 
 	// for now lets ignore the rvec
 	// Need to see if we can modify for trapezim, Eli said it's bad
-	found = cv::solvePnP(
+	cv::solvePnP(
 		worldSquare,
 		cameraSquare,
 		cameraMatrix,
@@ -525,7 +530,7 @@ void squareToPosition(
 	};
 }
 
-void smoothPosition(
+void smoothPos(
 	Vec3f smoothPosition,
 	Vec3f dronePosition,
 	float smoothingFactor,
@@ -533,11 +538,11 @@ void smoothPosition(
 ) {
 	// Smooth out the position
 	if (first_run) {
-		smoothPosition = pos;
+		smoothPosition = dronePosition;
 	} else {
 		smoothPosition = (
 			smoothingFactor * smoothPosition
-			+ (1 - smoothingFactor) * dronePosition;
+			+ (1 - smoothingFactor) * dronePosition
 		);
 	}
 }
