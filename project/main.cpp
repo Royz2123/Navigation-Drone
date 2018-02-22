@@ -51,6 +51,8 @@ using cv::VideoCapture;
 #define FACE_MODE 0
 #define HET_MODE 1
 #define NAV_MODE 2
+#define CORR_MODE 3
+
 #define NUM_THREADS 2
 
 #define AXIS_COUNT 3
@@ -112,6 +114,8 @@ int main(int argc, char* argv[]) {
 			detectMode = FACE_MODE;
 		} else if (strcmp(argv[2], "het") == 0) {
 			detectMode = HET_MODE;
+		} else if (strcmp(argv[2], "corr") == 0) {
+			detectMode = CORR_MODE;
 		} else {
 			detectMode = NAV_MODE;
 		}
@@ -266,7 +270,10 @@ void mainLoop() {
 		bool found;
 		if(detectMode == NAV_MODE) {
 			// New technique, find vector directly
-			found = findTransform(frame, prevFrame, oldCameraSquare, cameraSquare);
+			found = findTransform(frame, prevFrame, dronePosition);
+		}
+		else if (detectMode == CORR_MODE) {
+
 		}
 		else {
 			// Old techniques, find camera square and convert to position

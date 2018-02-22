@@ -1,4 +1,4 @@
-#include "location.hpp"
+float#include "location.hpp"
 #include "detection.hpp"
 
 #include <mutex>
@@ -84,6 +84,7 @@ void binarizeImageInv(const Mat &src, Mat &dst)
 	}
 }
 
+/*
 
 // This function:
 // 1) finds the transform between the 2 frames
@@ -91,13 +92,37 @@ void binarizeImageInv(const Mat &src, Mat &dst)
 bool findTransform(
 	Mat& frame,
 	Mat& prevFrame,
-	vector<Point2f>& oldCameraSquare,
-	vector<Point2f>& cameraSquare
+	Vec3f dronePosition,
 ) {
+	Mat a;
+	Mat b;
+
 	// set the two vectors (scaling and translation)
+	Mat transform = estimateRigidTransform(
+		frame,
+		prevFrame,
+		false
+	);
+
+	// work on trasnform
+	float deltaTheta = atan(A[0][1] / A[0][0]);
+  float deltaScale = (A[0][0] / cos(deltaTheta));
+  float deltaX = B[0];
+  float deltaY = B[1];
+
+  // apply transform onsquare to get new Camera Square
+	float old_height = dronePosition[2];
+  float new_height = old_height / deltaScale;
+  float rel_X = (deltaX / new_im.shape[1]) * (new_height * CAMERA_RATIO_X)
+    ret_Y = (deltaY / new_im.shape[0]) * (new_height * CAMERA_RATIO_Y)
+    total_y  += deltaY
+    total_x  += deltaX
+
+
 
 
 }
+*/
 
 
 
